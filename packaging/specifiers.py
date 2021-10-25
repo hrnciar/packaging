@@ -303,8 +303,10 @@ def _require_version_compare(
 
 class Specifier(_IndividualSpecifier):
 
-    _regex_str = r"""
+    _operator_regex_str = r"""
         (?P<operator>(~=|==|!=|<=|>=|<|>|===))
+        """
+    _version_regex_str = r"""
         (?P<version>
             (?:
                 # The identity operators allow for an escape hatch that will
@@ -396,7 +398,10 @@ class Specifier(_IndividualSpecifier):
         )
         """
 
-    _regex = re.compile(r"^\s*" + _regex_str + r"\s*$", re.VERBOSE | re.IGNORECASE)
+    _regex = re.compile(
+        r"^\s*" + _operator_regex_str + _version_regex_str + r"\s*$",
+        re.VERBOSE | re.IGNORECASE,
+    )
 
     _operators = {
         "~=": "compatible",
