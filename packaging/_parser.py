@@ -53,7 +53,7 @@ class Requirement(NamedTuple):
 
 def parse_named_requirement(requirement: str) -> Requirement:
     """
-    NAMED_REQUIREMENT: NAME EXTRAS* URL_SPEC (SEMICOLON + MARKER_EXPR)*
+    named_requirement: IDENTIFIER extras* (URL_SPEC | specifier)* (SEMICOLON marker_expr)*
     """
     tokens = Tokenizer(requirement)
     tokens.expect("IDENTIFIER", error_message="Expression must begin with package name")
@@ -82,7 +82,7 @@ def parse_named_requirement(requirement: str) -> Requirement:
 
 def parse_extras(tokens: Tokenizer) -> List[str]:
     """
-    EXTRAS: (LBRACKET + IDENTIFIER + (COMMA + IDENTIFIER)* + RBRACKET)*
+    extras: (LBRACKET IDENTIFIER (COMMA IDENTIFIER)* RBRACKET)*
     """
     extras = []
     if tokens.try_read("LBRACKET"):
@@ -100,7 +100,7 @@ def parse_extras(tokens: Tokenizer) -> List[str]:
 
 def parse_specifier(tokens: Tokenizer) -> str:
     """
-    SPECIFIER: LPAREN (OP + VERSION + COMMA)+ RPAREN | OP + VERSION
+    specifier: LPAREN (OP VERSION (COMMA OP VERSION)*)* RPAREN | (OP VERSION (COMMA OP VERSION)*)*
     """
     parsed_specifiers = ""
     lparen = False
@@ -123,7 +123,7 @@ def parse_specifier(tokens: Tokenizer) -> str:
 
 def parse_marker_expr(tokens: Tokenizer) -> MarkerList:
     """
-    MARKER_EXPR: MARKER_ATOM (BOOLOP + MARKER_ATOM)+
+    marker_expr: marker_atom (BOOLOP marker_atom)+
     """
     expression = [parse_marker_atom(tokens)]
     while tokens.match("BOOLOP"):
@@ -135,7 +135,7 @@ def parse_marker_expr(tokens: Tokenizer) -> MarkerList:
 
 def parse_marker_atom(tokens: Tokenizer) -> MarkerAtom:
     """
-    MARKER_ATOM: LPAREN MARKER_EXPR RPAREN | MARKER_ITEM
+    marker_atom: LPAREN marker_expr RPAREN | marker_item
     """
     if tokens.try_read("LPAREN"):
         marker = parse_marker_expr(tokens)
@@ -148,7 +148,7 @@ def parse_marker_atom(tokens: Tokenizer) -> MarkerAtom:
 
 def parse_marker_item(tokens: Tokenizer) -> MarkerItem:
     """
-    MARKER_ITEM: MARKER_VAR MARKER_OP MARKER_VAR
+    marker_item: marker_var marker_op marker_var
     """
     marker_var_left = parse_marker_var(tokens)
     marker_op = parse_marker_op(tokens)
@@ -158,7 +158,7 @@ def parse_marker_item(tokens: Tokenizer) -> MarkerItem:
 
 def parse_marker_var(tokens: Tokenizer) -> MarkerVar:
     """
-    MARKER_VAR: VARIABLE | MARKER_VALUE
+    marker_var: variable | python_str
     """
     if tokens.match("VARIABLE"):
         return parse_variable(tokens)
@@ -167,6 +167,10 @@ def parse_marker_var(tokens: Tokenizer) -> MarkerVar:
 
 
 def parse_variable(tokens: Tokenizer) -> Variable:
+    #TODO: better name for rule?
+    """
+    variable: VARIABLE
+    """
     env_var = tokens.read("VARIABLE").text.replace(".", "_")
     if (
         env_var == "platform_python_implementation"
@@ -178,6 +182,9 @@ def parse_variable(tokens: Tokenizer) -> Variable:
 
 
 def parse_python_str(tokens: Tokenizer) -> Value:
+    """
+    python_str: QUOTED_STRING
+    """
     if tokens.match("QUOTED_STRING"):
         python_str = literal_eval(tokens.read().text)
         return Value(str(python_str))
@@ -188,9 +195,13 @@ def parse_python_str(tokens: Tokenizer) -> Value:
 
 
 def parse_marker_op(tokens: Tokenizer) -> Op:
+    """
+    marker_op: IN | NOT IN | OP
+    """
     if tokens.try_read("IN"):
         return Op("in")
     elif tokens.try_read("NOT"):
+        tokens.expect("IN", error_message="NOT token must be follewed by IN token")
         tokens.read("IN")
         return Op("not in")
     elif tokens.match("OP"):
