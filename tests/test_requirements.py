@@ -96,6 +96,22 @@ class TestRequirements:
         req = Requirement("name >=2, <3")
         self._assert_requirement(req, "name", specifier="<3,>=2")
 
+    def test_name_with_multiple_versions_in_parenthesis(self):
+        req = Requirement("name (>=2,<3)")
+        self._assert_requirement(req, "name", specifier="<3,>=2")
+
+    def test_name_with_no_extras_no_versions_in_parenthesis(self):
+        req = Requirement("name []()")
+        self._assert_requirement(req, "name", specifier="", extras=[])
+
+    def test_name_with_extra_and_multiple_versions_in_parenthesis(self):
+        req = Requirement("name [foo, bar](>=2,<3)")
+        self._assert_requirement(req, "name", specifier="<3,>=2", extras=["foo", "bar"])
+
+    def test_name_with_no_versions_in_parenthesis(self):
+        req = Requirement("name ()")
+        self._assert_requirement(req, "name", specifier="")
+
     def test_extras(self):
         req = Requirement("foobar [quux,bar]")
         self._assert_requirement(req, "foobar", extras=["bar", "quux"])
